@@ -1,0 +1,1849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tambola & Housie Master Caller</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            outfit: ['Outfit', 'sans-serif'],
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            amberAccent: '#f59e0b',
+            emeraldAccent: '#10b981'
+          },
+          animation: {
+            'pop-in': 'popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+            'pulse-subtle': 'pulseSubtle 2s infinite ease-in-out',
+          },
+          keyframes: {
+            popIn: {
+              '0%': { transform: 'scale(0.5)', opacity: '0' },
+              '100%': { transform: 'scale(1)', opacity: '1' }
+            },
+            pulseSubtle: {
+              '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(79, 70, 229, 0.4)' },
+              '50%': { transform: 'scale(1.03)', boxShadow: '0 0 0 12px rgba(79, 70, 229, 0)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .number-cell {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    /* Hide scrollbars for slick recent chips */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- TOP APP BAR: Natural scrolling on mobile (static), sticky on tablet/desktop (sm:sticky) -->
+  <header class="bg-white border-b border-slate-200 static sm:sticky top-0 z-40 px-3 sm:px-5 py-2.5 shadow-sm w-full">
+    <div class="w-full flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Brand & Status -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-extrabold text-xl shadow-md shadow-indigo-100">
+          🎲
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl sm:text-2xl font-black font-outfit text-slate-900 tracking-tight leading-tight">
+              Tambola <span class="text-indigo-600">Housie</span>
+            </h1>
+            <span id="game-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+              Game #1
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 font-medium">Tournament Caller & Scoring System</p>
+        </div>
+      </div>
+
+      <!-- Quick Metrics -->
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
+        <!-- Tournament Leaderboard Button -->
+        <button onclick="openLeaderboardModal()" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs sm:text-sm font-bold shadow-md shadow-amber-500/20 flex items-center gap-1.5 transition active:scale-95">
+          <span>🏆</span>
+          <span class="hidden sm:inline">Leaderboard & Info</span>
+          <span class="sm:hidden">Scores</span>
+          <span id="header-total-games" class="ml-1 bg-amber-600/30 px-1.5 py-0.2 rounded-md text-[10px] text-slate-900 font-black">0 Done</span>
+        </button>
+
+        <!-- Prize Points Rules Setup Button -->
+        <button onclick="openPointsConfigModal()" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition">
+          <span>⚙️</span>
+          <span class="hidden sm:inline">Set Points</span>
+        </button>
+
+        <!-- Integrated Voice Dropdown with Clickable Speaker Toggle (Replaces Separate Voice Button & Language Dropdown) -->
+        <div class="flex items-center gap-1.5 bg-slate-100 px-2 sm:px-3 py-1.5 rounded-xl border border-slate-200">
+          <button id="voice-icon-btn" onclick="toggleMuteFromIcon()" title="Click to quickly Mute / Unmute" class="hover:scale-110 active:scale-95 transition cursor-pointer text-base">
+            <span id="voice-icon">🔊</span>
+          </button>
+          <select id="voice-persona-select" onchange="onVoiceProfileChange(this.value)" class="bg-transparent text-xs sm:text-sm font-bold text-slate-700 outline-none cursor-pointer">
+            <option value="off">🔇 Voice Off (Mute)</option>
+            <option value="lady" selected>👩 Lady / Female Voice</option>
+            <option value="lady_slow">🐢 Slow & Clear (Female)</option>
+            <option value="male_slow">🐢 Slow & Clear (Male)</option>
+            <option value="bass">🧔 Deep Bass (Male)</option>
+            <option value="male">🎙️ Classic Male</option>
+            <option value="robo">🤖 Robo Announcer</option>
+          </select>
+        </div>
+
+        <!-- End Round / Reset Dropdown -->
+        <button onclick="confirmFinishGame()" class="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 text-xs sm:text-sm font-bold transition active:scale-95 flex items-center gap-1" title="Saves points to leaderboard & begins next game">
+          <span>🏁</span>
+          <span class="hidden sm:inline">End Game</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT -->
+  <main class="max-w-7xl mx-auto w-full p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+
+    <!-- LEFT & CENTER COLUMN: HERO CALLER + FULL 90 BOARD -->
+    <div class="lg:col-span-8 flex flex-col gap-6">
+
+      <!-- HERO CALLER PANEL -->
+      <section class="bg-gradient-to-br from-indigo-700 via-indigo-600 to-purple-800 text-white rounded-3xl p-5 sm:p-7 shadow-xl shadow-indigo-100 relative overflow-hidden">
+        
+        <!-- Decorative Glow Circles -->
+        <div class="absolute -right-16 -top-16 w-56 h-56 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="absolute -left-12 -bottom-12 w-48 h-48 bg-purple-500/20 rounded-full blur-xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+          
+          <!-- Large Circular Number Display -->
+          <div class="flex flex-col items-center text-center">
+            <span class="text-xs uppercase tracking-widest text-indigo-200 font-bold mb-2">Current Number</span>
+            
+            <div id="ball-circle" class="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-white text-indigo-900 flex items-center justify-center shadow-2xl font-outfit text-6xl sm:text-7xl font-black border-4 border-amber-400 relative">
+              <span id="current-number-display" class="relative z-10 animate-pop-in">--</span>
+              <div class="absolute inset-1 rounded-full border border-indigo-100 pointer-events-none"></div>
+            </div>
+
+            <!-- Moved Called Counter Badge here (Replaced the slang pill) -->
+            <div class="mt-3 px-5 py-2 rounded-full bg-white/15 backdrop-blur-md text-white text-sm sm:text-base font-bold tracking-wide shadow-md border border-white/25 flex items-center gap-2">
+              <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Called: <strong id="progress-text" class="text-amber-300 font-extrabold text-base sm:text-lg">0</strong> / 90</span>
+            </div>
+          </div>
+
+          <!-- Controls and Auto Call settings -->
+          <div class="flex flex-col items-center md:items-end gap-4 w-full md:w-auto">
+            
+            <!-- Primary Action Call Button -->
+            <button id="draw-btn" onclick="drawNextNumber()" class="w-full sm:w-64 py-4 px-6 rounded-2xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-900 font-extrabold text-lg sm:text-xl font-outfit shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2 transition duration-150">
+              <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.5v-9l6 4.5-6 4.5z"/></svg>
+              <span>DRAW NUMBER</span>
+            </button>
+
+            <!-- Auto Draw & Speed Toggle Row -->
+            <div class="flex items-center gap-2 bg-indigo-900/40 p-2 rounded-2xl border border-white/15 w-full sm:w-auto justify-between">
+              
+              <button id="auto-btn" onclick="toggleAutoDraw()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition flex items-center gap-2">
+                <span id="auto-indicator" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                <span id="auto-btn-text">Auto Draw</span>
+              </button>
+
+              <div class="flex items-center gap-1.5 px-2 text-xs font-medium text-indigo-200">
+                <span>Speed:</span>
+                <select id="speed-select" onchange="updateAutoSpeed(this.value)" class="bg-indigo-800 text-white rounded-lg px-2 py-1 text-xs outline-none border border-white/20">
+                  <option value="4000">4 sec</option>
+                  <option value="6000" selected>6 sec</option>
+                  <option value="8000">8 sec</option>
+                  <option value="10000">10 sec</option>
+                </select>
+              </div>
+
+            </div>
+
+            <!-- Fast Check / Number Verifier Modal Trigger -->
+            <div class="w-full flex justify-end">
+              <div class="w-full sm:w-64 flex gap-1">
+                <input id="verify-input" type="number" min="1" max="90" placeholder="Verify number..." class="w-full px-3 py-2 text-xs sm:text-sm bg-white/10 text-white placeholder-indigo-200 rounded-xl outline-none border border-white/20 focus:bg-white focus:text-slate-900 transition">
+                <button onclick="verifyNumber()" class="px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-semibold whitespace-nowrap transition">
+                  Check
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- RECENT NUMBERS CALL STRIP -->
+        <div class="mt-6 pt-5 border-t border-white/15 flex flex-col sm:flex-row items-center gap-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-200 whitespace-nowrap">Last 5 Numbers:</span>
+          <div id="recent-numbers-strip" class="flex items-center gap-2.5 overflow-x-auto w-full no-scrollbar pb-1 sm:pb-0">
+            <span class="text-xs text-indigo-200/60 italic">None yet.</span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- 1 TO 90 NUMBER BOARD -->
+      <section class="bg-white rounded-3xl p-4 sm:p-6 shadow-sm border border-slate-200">
+        
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+          <div>
+            <h2 class="text-lg font-bold font-outfit text-slate-900 flex items-center gap-2">
+              <span>Full Board (1 - 90)</span>
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold border border-slate-200">Standard Grid</span>
+            </h2>
+            <p class="text-xs text-slate-500">Tap any number anytime to quickly hear or inspect status.</p>
+          </div>
+
+          <!-- Color Key Guide -->
+          <div class="flex items-center gap-3 text-xs text-slate-600 font-medium">
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded-md bg-indigo-600 border border-indigo-700"></span>
+              <span>Called</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded-md bg-amber-400 border border-amber-500"></span>
+              <span>Current</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded-md bg-slate-100 border border-slate-200"></span>
+              <span>Pending</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 10 Columns x 9 Rows Board Grid -->
+        <div id="housie-board" class="grid grid-cols-10 gap-1.5 sm:gap-2 text-center select-none">
+          <!-- Dynamically populated numbers 1 - 90 -->
+        </div>
+
+      </section>
+
+    </div>
+
+    <!-- RIGHT COLUMN: PLAYERS & PRIZE CLAIMS PANEL -->
+    <div class="lg:col-span-4 flex flex-col gap-6">
+
+      <!-- PRIZE CLAIMS CARD -->
+      <section class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm flex flex-col gap-4">
+        
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg font-bold font-outfit text-slate-900">Prize Tracker</h2>
+              <button onclick="openPointsConfigModal()" class="text-[11px] text-indigo-600 hover:underline font-semibold flex items-center gap-0.5">
+                (Edit Points)
+              </button>
+            </div>
+            <p class="text-xs text-slate-500">Points auto-awarded to players upon claim</p>
+          </div>
+          <button onclick="openLeaderboardModal()" class="text-xs px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 font-bold border border-amber-200 hover:bg-amber-100 transition">
+            View Rankings 👑
+          </button>
+        </div>
+
+        <!-- Claim Badges List -->
+        <div id="prize-list" class="space-y-2.5">
+          <!-- Built dynamically -->
+        </div>
+
+        <!-- End Game Button inside Prize Card for easy access -->
+        <button onclick="confirmFinishGame()" class="w-full mt-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold text-sm shadow-md shadow-indigo-200 flex items-center justify-center gap-2 transition active:scale-95">
+          <span>🏁 Finish Game & Save Scores to Leaderboard</span>
+        </button>
+
+      </section>
+
+      <!-- ACTIVE PLAYERS CARD -->
+      <section class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm flex flex-col flex-1">
+        
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-lg font-bold font-outfit text-slate-900">Active Players</h2>
+            <p class="text-xs text-slate-500"><span id="player-count">0</span> Registered</p>
+          </div>
+          <button onclick="addGenericPlayer()" title="Add another generic player" class="px-2.5 py-1 text-xs rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 flex items-center gap-1 transition">
+            ➕ Add Player
+          </button>
+        </div>
+
+        <!-- Add Player Form -->
+        <form onsubmit="addPlayer(event)" class="flex gap-2 mb-4">
+          <input id="player-name-input" type="text" maxlength="20" placeholder="Enter player name..." required class="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+          <button type="submit" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition active:scale-95 whitespace-nowrap shadow-sm shadow-indigo-200">
+            Add
+          </button>
+        </form>
+
+        <!-- Player List -->
+        <div id="players-list-container" class="flex-1 overflow-y-auto max-h-72 divide-y divide-slate-100 pr-1">
+          <div id="empty-player-state" class="text-center py-8 text-slate-400 text-xs">
+            No players added yet.<br>Add names to assign claims and track wins!
+          </div>
+          <ul id="players-ul" class="space-y-1.5"></ul>
+        </div>
+
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- CLAIM WINNER MODAL -->
+  <div id="claim-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-100 animate-pop-in">
+      
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-lg font-bold font-outfit text-slate-900 flex items-center gap-2">
+          <span>Award Winning Claim</span>
+        </h3>
+        <button onclick="closeClaimModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+
+      <div class="mb-4 bg-indigo-50 border border-indigo-100 p-3 rounded-2xl flex items-center justify-between">
+        <div>
+          <div class="text-xs text-indigo-600 font-semibold uppercase tracking-wider">Pattern Claimed:</div>
+          <div id="modal-pattern-title" class="text-base font-bold text-indigo-900 mt-0.5">Full House</div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-slate-500 uppercase font-semibold">Award Points</div>
+          <div id="modal-pattern-points" class="text-base font-black text-amber-600 font-outfit">+50 pts</div>
+        </div>
+      </div>
+
+      <div class="mb-5">
+        <label class="block text-xs font-semibold text-slate-600 uppercase mb-2">Select Winning Player:</label>
+        <select id="modal-player-select" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+          <option value="">-- Choose from active players --</option>
+        </select>
+        <p class="text-[11px] text-slate-400 mt-1.5">Points will be credited directly to this player's tournament tally.</p>
+      </div>
+
+      <div class="flex gap-3">
+        <button onclick="closeClaimModal()" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50">Cancel</button>
+        <button onclick="confirmClaimWinner()" class="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 shadow-md shadow-indigo-200">Confirm Winner</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PRE-GAME POINTS CONFIGURATION MODAL -->
+  <div id="points-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-100 animate-pop-in">
+      <div class="flex justify-between items-center mb-2">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">⚙️</span>
+          <h3 class="text-lg font-bold font-outfit text-slate-900">Set Prize Points</h3>
+        </div>
+        <button onclick="closePointsConfigModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+      <p class="text-xs text-slate-500 mb-4">Set points before or during your game. These points will be awarded to players when each prize is claimed.</p>
+
+      <form id="points-form" onsubmit="savePointsConfig(event)" class="space-y-3">
+        <div id="points-inputs-container" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+          <!-- Dynamically populated prize inputs -->
+        </div>
+
+        <div class="flex gap-3 pt-3 border-t border-slate-100">
+          <button type="button" onclick="resetDefaultPoints()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50">Reset Defaults</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-md shadow-indigo-200">Save Points Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOURNAMENT LEADERBOARD & GAME INFO MODAL -->
+  <div id="leaderboard-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-5">
+    <div class="bg-white w-full max-w-3xl rounded-3xl p-5 sm:p-7 shadow-2xl border border-slate-100 animate-pop-in flex flex-col max-h-[90vh]">
+      
+      <!-- Modal Header -->
+      <div class="flex items-start justify-between pb-4 border-b border-slate-100">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">🏆</span>
+            <h3 class="text-xl font-black font-outfit text-slate-900">Tournament Leaderboard</h3>
+            <span id="lb-games-count-badge" class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">0 Games Completed</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Review rankings, cumulative score points, and claims breakdown.</p>
+        </div>
+        <button onclick="closeLeaderboardModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+
+      <!-- Navigation Tabs: Leaderboard vs Game History -->
+      <div class="flex border-b border-slate-200 mt-4 gap-2">
+        <button id="tab-btn-rankings" onclick="switchLeaderboardTab('rankings')" class="px-4 py-2 border-b-2 border-indigo-600 font-bold text-sm text-indigo-600 transition">
+          Player Standings & Points
+        </button>
+        <button id="tab-btn-history" onclick="switchLeaderboardTab('history')" class="px-4 py-2 border-b-2 border-transparent font-medium text-sm text-slate-500 hover:text-slate-700 transition">
+          Game-by-Game History (<span id="tab-history-count">0</span>)
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="flex-1 overflow-y-auto py-4">
+        
+        <!-- Tab 1: Rankings View -->
+        <div id="tab-content-rankings" class="space-y-4">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+                  <th class="py-2 px-3">Rank</th>
+                  <th class="py-2 px-3">Player</th>
+                  <th class="py-2 px-3 text-center">Claims Won</th>
+                  <th class="py-2 px-3 text-right">Total Points</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard-table-body" class="divide-y divide-slate-100 text-sm">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <div id="empty-lb-state" class="text-center py-10 text-slate-400 text-xs hidden">
+            No games completed yet. Claim prizes and click <strong>"End Game"</strong> to record game points!
+          </div>
+        </div>
+
+        <!-- Tab 2: Clean Game-by-Game History View (Original simple card layout) -->
+        <div id="tab-content-history" class="space-y-3 hidden">
+          <div id="game-history-list" class="space-y-3">
+            <!-- Dynamic round cards -->
+          </div>
+          <div id="empty-history-state" class="text-center py-10 text-slate-400 text-xs">
+            No completed games recorded yet. Finish a round to see full summaries here.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <button onclick="resetTournamentData()" class="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold border border-rose-200 transition">
+          Reset Tournament Data
+        </button>
+        <button onclick="closeLeaderboardModal()" class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition">
+          Close
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- NOTIFICATION TOAST -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-sm pointer-events-none">
+    <span id="toast-icon">ℹ️</span>
+    <span id="toast-message">Notification</span>
+  </div>
+
+  <!-- CUSTOM CENTERED STYLED DIALOG MODAL (Replaces browser prompt & confirm) -->
+  <div id="custom-dialog-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-100 animate-pop-in text-center">
+      <div id="dialog-icon-container" class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl shadow-inner">
+        💬
+      </div>
+      <h3 id="dialog-title" class="text-lg font-bold font-outfit text-slate-900 mb-1">Confirm Action</h3>
+      <p id="dialog-message" class="text-xs text-slate-500 mb-4 whitespace-pre-line leading-relaxed">Are you sure you want to proceed?</p>
+      
+      <!-- Prompt input box (shown only for prompt mode) -->
+      <div id="dialog-input-wrapper" class="mb-4 hidden">
+        <input id="dialog-input" type="text" maxlength="25" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-center font-medium" placeholder="Enter name...">
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex gap-2.5">
+        <button id="dialog-cancel-btn" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs sm:text-sm font-semibold hover:bg-slate-50 transition active:scale-95">Cancel</button>
+        <button id="dialog-confirm-btn" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-200 transition active:scale-95">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION FOOTER -->
+  <footer class="mt-auto py-4 border-t border-slate-200 bg-white text-center text-xs text-slate-500 font-medium">
+    <p>Copyright &copy; 2026 by Krishna Chintam. All rights reserved.</p>
+  </footer>
+
+  <!-- TAMBOLA SLANGS DATA & SCRIPT -->
+  <script>
+    // Classic Tambola Slang Dictionary (English)
+    const tambolaSlangs = {
+      1: "Top of the house, Number 1",
+      2: "One little duck, Number 2",
+      3: "Cup of tea, Number 3",
+      4: "Knock at the door, Number 4",
+      5: "Fingers in your hand, Number 5",
+      6: "In a fix, Number 6",
+      7: "Lucky Number 7",
+      8: "Garden gate, Number 8",
+      9: "Doctor's time, Number 9",
+      10: "A big fat hen, Number 10",
+      11: "Two beautiful legs, Number 11",
+      12: "One dozen, Number 12",
+      13: "Unlucky for some, Lucky 13",
+      14: "Valentine's Day, Number 14",
+      15: "Yet to be kissed, Number 15",
+      16: "Sweet sixteen, Number 16",
+      17: "Dancing queen, Number 17",
+      18: "Voting age, Number 18",
+      19: "Goodbye teens, Number 19",
+      20: "One score, Blind 20",
+      21: "Royal salute, Number 21",
+      22: "Two little ducks, Number 22",
+      23: "You and me, Number 23",
+      24: "Two dozen, Number 24",
+      25: "Silver jubilee, Number 25",
+      26: "Republic Day, Number 26",
+      27: "Gateway to heaven, Number 27",
+      28: "Over weight, Number 28",
+      29: "Rise and shine, Number 29",
+      30: "Women get flirty at 30",
+      31: "Time for fun, Number 31",
+      32: "Buckle my shoe, Number 32",
+      33: "All the 3s, Dirty knee, 33",
+      34: "Ask for more, Number 34",
+      35: "Jump and jive, Number 35",
+      36: "Popular size, Number 36",
+      37: "Mixed luck, Number 37",
+      38: "Christmas cake, Number 38",
+      39: "Watch the line, Number 39",
+      40: "Naughty forty, Number 40",
+      41: "Life begins at 41",
+      42: "Winnie the Pooh, Number 42",
+      43: "Down on your knees, 43",
+      44: "Droopy drawers, 44",
+      45: "Halfway there, Number 45",
+      46: "Up to tricks, Number 46",
+      47: "Year of independence, 47",
+      48: "Four dozen, Number 48",
+      49: "Rise and shine, 49",
+      50: "Golden jubilee, Half a century",
+      51: "Auspicious shagun, 51",
+      52: "Pack of cards, Number 52",
+      53: "Pack with a joker, 53",
+      54: "Clean the floor, Number 54",
+      55: "All the fives, Snappy 55",
+      56: "Was she worth it? 56",
+      57: "Mutiny year, Number 57",
+      58: "Make them wait, 58",
+      59: "Just retired, Number 59",
+      60: "Five dozen, Number 60",
+      61: "Bakers bun, Number 61",
+      62: "Turn the screw, Number 62",
+      63: "Tickle me, Number 63",
+      64: "Catch the chore, Number 64",
+      65: "Old age pension, 65",
+      66: "Chak de phatte, Clickety-click 66",
+      67: "Stairway to heaven, 67",
+      68: "Saving grace, Number 68",
+      69: "Any way round, 69",
+      70: "Lucky blind 70",
+      71: "Bang on drum, Number 71",
+      72: "Six dozen, Number 72",
+      73: "Queen bee, Number 73",
+      74: "Candy store, Number 74",
+      75: "Diamond jubilee, 75",
+      76: "Trombones, Number 76",
+      77: "Two little hockey sticks, 77",
+      78: "Heaven's gate, Number 78",
+      79: "One more time, Number 79",
+      80: "Blind 80, Eight and blank",
+      81: "Corner shot, Number 81",
+      82: "Fat lady with a duck, 82",
+      83: "India won cricket cup, 83",
+      84: "Last of the four, 84",
+      85: "Staying alive, Number 85",
+      86: "Between the sticks, 86",
+      87: "Fat lady with a crutch, 87",
+      88: "Two fat ladies, 88",
+      89: "Nearly there, 89",
+      90: "Top of the world, End of the line 90"
+    };
+
+    const digitWordsEN = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+
+    // State Variables
+    let uncalledNumbers = [];
+    let calledNumbers = [];
+    let currentNumber = null;
+    let voiceProfile = 'lady'; // 'off', 'lady', 'bass', 'male', 'robo'
+    let lastActiveVoiceProfile = 'lady';
+    let autoDrawInterval = null;
+    let autoDrawSpeed = 6000;
+    
+    // Generic default player names
+    let players = ['Player 1', 'Player 2', 'Player 3'];
+    let selectedClaimIndex = null;
+
+    // Multi-Game & Tournament Scoring State
+    let currentGameIndex = 1;
+    let completedGamesHistory = [];
+    let playerPointsMap = {
+      'Player 1': 0,
+      'Player 2': 0,
+      'Player 3': 0
+    };
+
+    // Prize Categories with Four Corners toggle enabled: false by default
+    let prizeCategories = [
+      { id: 'early5', title: '1st Five (Quick 5)', defaultPoints: 10, points: 10, enabled: true, winner: null, icon: '⚡' },
+      { id: 'topline', title: 'Line 1 (Top Line)', defaultPoints: 15, points: 15, enabled: true, winner: null, icon: '⬆️' },
+      { id: 'midline', title: 'Line 2 (Middle Line)', defaultPoints: 15, points: 15, enabled: true, winner: null, icon: '↔️' },
+      { id: 'botline', title: 'Line 3 (Bottom Line)', defaultPoints: 15, points: 15, enabled: true, winner: null, icon: '⬇️' },
+      { id: 'corners', title: 'Four Corners', defaultPoints: 20, points: 20, enabled: false, winner: null, icon: '📐' },
+      { id: 'fullhouse', title: 'Full House (Housie)', defaultPoints: 50, points: 50, enabled: true, winner: null, icon: '👑' }
+    ];
+
+    // ==========================================
+    // INDEXEDDB PERSISTENCE MODULE
+    // ==========================================
+    const DB_NAME = 'TambolaHousieDB';
+    const DB_VERSION = 1;
+    let dbInstance = null;
+
+    function openIndexedDB() {
+      return new Promise((resolve) => {
+        if (!('indexedDB' in window)) {
+          resolve(null);
+          return;
+        }
+        const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains('game_store')) {
+            db.createObjectStore('game_store', { keyPath: 'key' });
+          }
+        };
+        request.onsuccess = (e) => {
+          dbInstance = e.target.result;
+          resolve(dbInstance);
+        };
+        request.onerror = () => resolve(null);
+      });
+    }
+
+    async function saveStateToIndexedDB() {
+      if (!dbInstance) return;
+      try {
+        const statePayload = {
+          key: 'app_state',
+          currentGameIndex,
+          players,
+          playerPointsMap,
+          completedGamesHistory,
+          prizeCategories,
+          calledNumbers,
+          uncalledNumbers,
+          currentNumber,
+          voiceProfile,
+          lastActiveVoiceProfile
+        };
+        const tx = dbInstance.transaction('game_store', 'readwrite');
+        const store = tx.objectStore('game_store');
+        store.put(statePayload);
+      } catch (err) {
+        console.warn("Failed saving state to IndexedDB:", err);
+      }
+    }
+
+    async function loadStateFromIndexedDB() {
+      if (!dbInstance) return false;
+      return new Promise((resolve) => {
+        try {
+          const tx = dbInstance.transaction('game_store', 'readonly');
+          const store = tx.objectStore('game_store');
+          const req = store.get('app_state');
+          req.onsuccess = (e) => {
+            const data = e.target.result;
+            if (data) {
+              currentGameIndex = data.currentGameIndex || 1;
+              if (Array.isArray(data.players) && data.players.length > 0) {
+                players = data.players;
+              }
+              if (data.playerPointsMap) {
+                playerPointsMap = data.playerPointsMap;
+              }
+              if (data.voiceProfile !== undefined) {
+                voiceProfile = data.voiceProfile;
+                if (data.lastActiveVoiceProfile) lastActiveVoiceProfile = data.lastActiveVoiceProfile;
+                syncVoiceUI();
+              }
+              if (Array.isArray(data.completedGamesHistory)) {
+                completedGamesHistory = data.completedGamesHistory;
+              }
+              if (Array.isArray(data.prizeCategories)) {
+                prizeCategories.forEach(p => {
+                  const match = data.prizeCategories.find(d => d.id === p.id);
+                  if (match) {
+                    p.points = match.points;
+                    p.enabled = match.enabled !== undefined ? match.enabled : true;
+                    p.winner = match.winner || null;
+                  }
+                });
+              }
+              if (Array.isArray(data.calledNumbers) && data.calledNumbers.length > 0) {
+                calledNumbers = data.calledNumbers;
+                currentNumber = data.currentNumber || calledNumbers[calledNumbers.length - 1];
+                uncalledNumbers = data.uncalledNumbers || Array.from({ length: 90 }, (_, i) => i + 1).filter(n => !calledNumbers.includes(n));
+              }
+              resolve(true);
+            } else {
+              resolve(false);
+            }
+          };
+          req.onerror = () => resolve(false);
+        } catch (e) {
+          resolve(false);
+        }
+      });
+    }
+
+    async function clearIndexedDB() {
+      if (!dbInstance) return;
+      try {
+        const tx = dbInstance.transaction('game_store', 'readwrite');
+        tx.objectStore('game_store').clear();
+      } catch (e) {
+        console.warn("Error clearing IndexedDB", e);
+      }
+    }
+
+    // Initialize Game & ensure generic defaults exist
+    function initGame(restoreExisting = false) {
+      if (!restoreExisting) {
+        uncalledNumbers = Array.from({ length: 90 }, (_, i) => i + 1);
+        calledNumbers = [];
+        currentNumber = null;
+      } else {
+        // Ensure uncalledNumbers is properly calculated from calledNumbers
+        const calledSet = new Set(calledNumbers);
+        uncalledNumbers = Array.from({ length: 90 }, (_, i) => i + 1).filter(n => !calledSet.has(n));
+      }
+
+      // Default to generic players if empty
+      if (!players || players.length === 0) {
+        players = ['Player 1', 'Player 2', 'Player 3'];
+      }
+
+      players.forEach(p => {
+        if (playerPointsMap[p] === undefined) playerPointsMap[p] = 0;
+      });
+
+      renderBoardGrid();
+
+      if (restoreExisting && calledNumbers.length > 0) {
+        calledNumbers.forEach(n => {
+          const cell = document.getElementById(`cell-${n}`);
+          if (cell) {
+            cell.className = `number-cell h-9 sm:h-11 rounded-xl font-outfit text-sm sm:text-base font-extrabold flex items-center justify-center border-2 bg-indigo-600 text-white border-indigo-700`;
+          }
+        });
+        if (currentNumber) {
+          highlightBoardNumber(currentNumber);
+          updateCurrentNumberDisplay(currentNumber, false);
+        }
+      } else {
+        document.getElementById('current-number-display').innerText = "--";
+      }
+
+      renderRecentStrip();
+      renderPrizeList();
+      renderPlayersList();
+      updateMetrics();
+      updateGameBadge();
+      syncVoiceUI();
+    }
+
+    function addGenericPlayer() {
+      let nextIndex = players.length + 1;
+      let newName = `Player ${nextIndex}`;
+      while (players.includes(newName)) {
+        nextIndex++;
+        newName = `Player ${nextIndex}`;
+      }
+      players.push(newName);
+      playerPointsMap[newName] = 0;
+      renderPlayersList();
+      saveStateToIndexedDB();
+      showToast(`Added ${newName}`, 'success');
+    }
+
+    function updateGameBadge() {
+      const badge = document.getElementById('game-badge');
+      if (badge) badge.innerText = `Game #${currentGameIndex}`;
+      const headerTotalGames = document.getElementById('header-total-games');
+      if (headerTotalGames) headerTotalGames.innerText = `${completedGamesHistory.length} Done`;
+    }
+
+    // Build standard 10x9 board
+    function renderBoardGrid() {
+      const board = document.getElementById('housie-board');
+      board.innerHTML = '';
+
+      for (let i = 1; i <= 90; i++) {
+        const btn = document.createElement('button');
+        btn.id = `cell-${i}`;
+        btn.setAttribute('data-number', i);
+        btn.className = `number-cell h-9 sm:h-11 rounded-xl font-outfit text-sm sm:text-base font-bold flex items-center justify-center border transition-all duration-200 
+          bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300`;
+        btn.innerText = i;
+        btn.onclick = () => handleBoardCellClick(i);
+        board.appendChild(btn);
+      }
+    }
+
+    function handleBoardCellClick(num) {
+      if (calledNumbers.includes(num)) {
+        speakText(`Number ${num}`);
+        showToast(`Number ${num} is CALLED ✅`, 'info');
+      } else {
+        showToast(`Number ${num} is not called yet ⏳`, 'info');
+      }
+    }
+
+    function getCaptionForNumber(num) {
+      return tambolaSlangs[num] || `Number ${num}`;
+    }
+
+    // VOICE PROFILES ENGINE (Deep Bass, Lady, Slow Female, Slow Male, Classic Male, Robo, Mute)
+    function onVoiceProfileChange(val) {
+      voiceProfile = val;
+      if (val !== 'off') {
+        lastActiveVoiceProfile = val;
+      }
+      syncVoiceUI();
+      saveStateToIndexedDB();
+
+      if (voiceProfile === 'off') {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        showToast("Voice muted / disabled", "info");
+      } else {
+        const profileTitles = {
+          lady: "Female / Lady Voice",
+          lady_slow: "Slow & Clear Female Voice",
+          male_slow: "Slow & Clear Male Voice",
+          bass: "Deep Bass Male Voice",
+          male: "Classic Male Voice",
+          robo: "Robo Announcer"
+        };
+        showToast(`Voice set to: ${profileTitles[val] || val}`, "info");
+        // Quick speech preview
+        speakText("Housie caller ready");
+      }
+    }
+
+    function toggleMuteFromIcon() {
+      if (voiceProfile === 'off') {
+        voiceProfile = lastActiveVoiceProfile || 'lady';
+        showToast("Voice unmuted", "info");
+      } else {
+        lastActiveVoiceProfile = voiceProfile;
+        voiceProfile = 'off';
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        showToast("Voice muted", "info");
+      }
+      syncVoiceUI();
+      saveStateToIndexedDB();
+    }
+
+    function syncVoiceUI() {
+      const select = document.getElementById('voice-persona-select');
+      const icon = document.getElementById('voice-icon');
+      if (select) select.value = voiceProfile;
+      if (icon) {
+        icon.innerText = (voiceProfile === 'off') ? '🔇' : '🔊';
+      }
+    }
+
+    function announceNumber(num) {
+      if (voiceProfile === 'off') {
+        playBeep(440, 0.1);
+        return;
+      }
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+
+        let phrase = "";
+        if (num >= 10) {
+          const d1 = Math.floor(num / 10);
+          const d2 = num % 10;
+          phrase = `${num}, ${digitWordsEN[d1]} ${digitWordsEN[d2]}`;
+        } else {
+          phrase = `${num}, Single ${digitWordsEN[num]}`;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(phrase);
+        applyVoiceCharacteristics(utterance, voiceProfile);
+        window.speechSynthesis.speak(utterance);
+      } else {
+        playBeep(520, 0.15);
+      }
+    }
+
+    function speakText(txt) {
+      if (voiceProfile === 'off' || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(txt);
+      applyVoiceCharacteristics(u, voiceProfile);
+      window.speechSynthesis.speak(u);
+    }
+
+    function applyVoiceCharacteristics(utterance, profile) {
+      utterance.lang = 'en-US';
+      const voices = window.speechSynthesis.getVoices() || [];
+
+      // Find female or male candidates
+      const femaleCandidate = voices.find(v => /female|zira|samantha|victoria|karen|susan|moira/i.test(v.name));
+      const maleCandidate = voices.find(v => /male|david|george|alex|daniel|oliver/i.test(v.name));
+
+      switch (profile) {
+        case 'lady_slow':
+          if (femaleCandidate) utterance.voice = femaleCandidate;
+          utterance.pitch = 1.05;
+          utterance.rate = 0.68; // Slower, relaxed pace for clear announcements
+          break;
+
+        case 'male_slow':
+          if (maleCandidate) utterance.voice = maleCandidate;
+          utterance.pitch = 0.9;
+          utterance.rate = 0.68; // Slower, steady male pace
+          break;
+
+        case 'bass':
+          if (maleCandidate) utterance.voice = maleCandidate;
+          utterance.pitch = 0.55; // Lower, deeper bass pitch
+          utterance.rate = 0.85;  // Deliberate announcer cadence
+          break;
+
+        case 'lady':
+          if (femaleCandidate) utterance.voice = femaleCandidate;
+          utterance.pitch = 1.15; // Natural clear feminine pitch
+          utterance.rate = 0.95;
+          break;
+
+        case 'male':
+          if (maleCandidate) utterance.voice = maleCandidate;
+          utterance.pitch = 0.95; // Crisp normal male
+          utterance.rate = 0.92;
+          break;
+
+        case 'robo':
+          utterance.pitch = 1.7;  // High pitched metallic/robotic
+          utterance.rate = 1.1;
+          break;
+
+        default:
+          utterance.pitch = 1.0;
+          utterance.rate = 0.9;
+          break;
+      }
+    }
+
+    function playBeep(freq = 440, duration = 0.1) {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (err) {
+        // Fallback gracefully if Web Audio is blocked or unsupported
+      }
+    }
+
+    // Board & Display Helper Functions
+    function updateCurrentNumberDisplay(num, animate = true) {
+      const display = document.getElementById('current-number-display');
+      display.innerText = num;
+      if (animate) {
+        display.classList.remove('animate-pop-in');
+        void display.offsetWidth; // Force DOM reflow
+        display.classList.add('animate-pop-in');
+      }
+    }
+
+    function highlightBoardNumber(num) {
+      // Revert previous current numbers to standard called style
+      calledNumbers.forEach(n => {
+        if (n !== num) {
+          const el = document.getElementById(`cell-${n}`);
+          if (el) {
+            el.className = `number-cell h-9 sm:h-11 rounded-xl font-outfit text-sm sm:text-base font-extrabold flex items-center justify-center border-2 bg-indigo-600 text-white border-indigo-700 shadow-sm`;
+          }
+        }
+      });
+
+      // Highlight the active number in pulsing amber
+      const activeCell = document.getElementById(`cell-${num}`);
+      if (activeCell) {
+        activeCell.className = `number-cell h-9 sm:h-11 rounded-xl font-outfit text-sm sm:text-base font-black flex items-center justify-center border-2 bg-amber-400 text-slate-900 border-amber-500 shadow-lg ring-2 ring-amber-300 ring-offset-1 scale-105 transition-all`;
+      }
+    }
+
+    function renderRecentStrip() {
+      const container = document.getElementById('recent-numbers-strip');
+      if (!container) return;
+
+      const recent = [...calledNumbers].slice(-5).reverse();
+      if (recent.length === 0) {
+        container.innerHTML = '<span class="text-xs text-indigo-200/60 italic">None yet.</span>';
+        return;
+      }
+
+      container.innerHTML = recent.map((n, i) => `
+        <div class="flex items-center justify-center min-w-[34px] h-[34px] px-2.5 rounded-xl font-outfit font-extrabold text-xs sm:text-sm shadow-sm transition-transform ${
+          i === 0 
+            ? 'bg-amber-400 text-slate-900 ring-2 ring-white/50 scale-105' 
+            : 'bg-white/20 text-white'
+        }">
+          ${n}
+        </div>
+      `).join('');
+    }
+
+    function updateMetrics() {
+      const progressText = document.getElementById('progress-text');
+      if (progressText) {
+        progressText.innerText = calledNumbers.length;
+      }
+    }
+
+    // Draw Next Random Number
+    function drawNextNumber() {
+      // Self-repair: If uncalledNumbers is empty but not all 90 numbers are called, rebuild it
+      if (uncalledNumbers.length === 0 && calledNumbers.length < 90) {
+        const calledSet = new Set(calledNumbers);
+        uncalledNumbers = Array.from({ length: 90 }, (_, i) => i + 1).filter(n => !calledSet.has(n));
+      }
+
+      if (uncalledNumbers.length === 0) {
+        showToast("All 90 numbers have been called! Game Over.", "warning");
+        stopAutoDraw();
+        triggerConfetti();
+        return;
+      }
+
+      const randomIndex = Math.floor(Math.random() * uncalledNumbers.length);
+      const picked = uncalledNumbers.splice(randomIndex, 1)[0];
+      
+      calledNumbers.push(picked);
+      currentNumber = picked;
+
+      updateCurrentNumberDisplay(picked, true);
+      highlightBoardNumber(picked);
+      renderRecentStrip();
+      updateMetrics();
+
+      announceNumber(picked);
+      saveStateToIndexedDB();
+
+      if (uncalledNumbers.length === 0) {
+        stopAutoDraw();
+      }
+    }
+
+    function toggleAutoDraw() {
+      if (autoDrawInterval) stopAutoDraw();
+      else startAutoDraw();
+    }
+
+    function startAutoDraw() {
+      if (uncalledNumbers.length === 0) {
+        showToast("Game already completed!", "warning");
+        return;
+      }
+      
+      const indicator = document.getElementById('auto-indicator');
+      const autoText = document.getElementById('auto-btn-text');
+      
+      indicator.classList.remove('bg-slate-400');
+      indicator.classList.add('bg-emerald-400', 'animate-ping');
+      autoText.innerText = "Pause Auto";
+      
+      drawNextNumber();
+      autoDrawInterval = setInterval(() => {
+        if (uncalledNumbers.length === 0) {
+          stopAutoDraw();
+        } else {
+          drawNextNumber();
+        }
+      }, autoDrawSpeed);
+
+      showToast(`Auto Calling started (${autoDrawSpeed / 1000}s)`, "success");
+    }
+
+    function stopAutoDraw() {
+      if (autoDrawInterval) {
+        clearInterval(autoDrawInterval);
+        autoDrawInterval = null;
+      }
+      const indicator = document.getElementById('auto-indicator');
+      const autoText = document.getElementById('auto-btn-text');
+      
+      if (indicator && autoText) {
+        indicator.classList.remove('bg-emerald-400', 'animate-ping');
+        indicator.classList.add('bg-slate-400');
+        autoText.innerText = "Auto Draw";
+      }
+    }
+
+    function updateAutoSpeed(val) {
+      autoDrawSpeed = parseInt(val, 10);
+      if (autoDrawInterval) {
+        stopAutoDraw();
+        startAutoDraw();
+      }
+    }
+
+    function verifyNumber() {
+      const input = document.getElementById('verify-input');
+      const num = parseInt(input.value, 10);
+      
+      if (isNaN(num) || num < 1 || num > 90) {
+        showToast("Please enter a valid number (1-90)", "warning");
+        return;
+      }
+
+      if (calledNumbers.includes(num)) {
+        showToast(`YES! Number ${num} has ALREADY been called.`, "success");
+        const el = document.getElementById(`cell-${num}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('ring-4', 'ring-amber-400');
+          setTimeout(() => el.classList.remove('ring-4', 'ring-amber-400'), 2500);
+        }
+      } else {
+        showToast(`NO. Number ${num} has NOT been called yet.`, "info");
+      }
+      input.value = '';
+    }
+
+    document.getElementById('verify-input').addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') verifyNumber();
+    });
+
+    // PRIZES & CLAIMS
+    function renderPrizeList() {
+      const container = document.getElementById('prize-list');
+      container.innerHTML = '';
+
+      prizeCategories.forEach((prize, idx) => {
+        if (prize.enabled === false) return;
+
+        const item = document.createElement('div');
+        const isWon = prize.winner !== null;
+
+        item.className = `p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+          isWon 
+            ? 'bg-emerald-50 border-emerald-200' 
+            : 'bg-slate-50/80 border-slate-200 hover:border-indigo-300'
+        }`;
+
+        item.innerHTML = `
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="text-xl p-1.5 rounded-xl ${isWon ? 'bg-emerald-100' : 'bg-white'} border border-slate-200/60 shadow-xs">${prize.icon}</span>
+            <div class="truncate">
+              <div class="flex items-center gap-2">
+                <span class="text-xs sm:text-sm font-bold text-slate-900 truncate">${prize.title}</span>
+                <span class="text-[11px] px-1.5 py-0.2 rounded-md font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                  +${prize.points} pts
+                </span>
+              </div>
+              <div class="text-xs ${isWon ? 'text-emerald-700 font-semibold' : 'text-slate-400'}">
+                ${isWon ? `Claimed by <strong>${prize.winner}</strong>` : 'Unclaimed'}
+              </div>
+            </div>
+          </div>
+          <div>
+            ${isWon 
+              ? `<button onclick="unclaimPrize(${idx})" title="Reset claim and deduct points" class="text-xs px-2.5 py-1 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-white transition">Undo</button>`
+              : `<button onclick="openClaimModal(${idx})" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition shadow-sm active:scale-95 whitespace-nowrap">Claim</button>`
+            }
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function openClaimModal(prizeIdx) {
+      selectedClaimIndex = prizeIdx;
+      const prize = prizeCategories[prizeIdx];
+      document.getElementById('modal-pattern-title').innerText = `${prize.icon} ${prize.title}`;
+      document.getElementById('modal-pattern-points').innerText = `+${prize.points} pts`;
+      
+      const select = document.getElementById('modal-player-select');
+      select.innerHTML = '<option value="">-- Choose from active players --</option>';
+
+      if (players.length === 0) {
+        select.innerHTML += '<option value="Guest Player">Guest / Unknown Player</option>';
+      } else {
+        players.forEach(p => {
+          const currentPts = playerPointsMap[p] || 0;
+          const opt = document.createElement('option');
+          opt.value = p;
+          opt.innerText = `${p} (${currentPts} pts currently)`;
+          select.appendChild(opt);
+        });
+        select.innerHTML += '<option value="Other Player">Other / Walk-in Player</option>';
+      }
+
+      document.getElementById('claim-modal').classList.remove('hidden');
+    }
+
+    function closeClaimModal() {
+      document.getElementById('claim-modal').classList.add('hidden');
+      selectedClaimIndex = null;
+    }
+
+    function confirmClaimWinner() {
+      const select = document.getElementById('modal-player-select');
+      const winnerName = select.value.trim();
+
+      if (!winnerName) {
+        showToast("Please choose a player or add one first", "warning");
+        return;
+      }
+
+      if (selectedClaimIndex !== null) {
+        const prize = prizeCategories[selectedClaimIndex];
+        prize.winner = winnerName;
+
+        if (!playerPointsMap[winnerName]) {
+          playerPointsMap[winnerName] = 0;
+        }
+        playerPointsMap[winnerName] += prize.points;
+
+        if (!players.includes(winnerName) && winnerName !== 'Other Player') {
+          players.push(winnerName);
+        }
+
+        renderPrizeList();
+        renderPlayersList();
+        closeClaimModal();
+        saveStateToIndexedDB();
+        
+        triggerConfetti();
+        speakText(`Congratulations ${winnerName} for winning ${prize.title}`);
+        showToast(`🎉 ${winnerName} won ${prize.title} (+${prize.points} pts)!`, "success");
+      }
+    }
+
+    function unclaimPrize(idx) {
+      const prize = prizeCategories[idx];
+      if (prize.winner && playerPointsMap[prize.winner] !== undefined) {
+        playerPointsMap[prize.winner] = Math.max(0, playerPointsMap[prize.winner] - prize.points);
+      }
+      prize.winner = null;
+      renderPrizeList();
+      renderPlayersList();
+      saveStateToIndexedDB();
+      showToast("Prize claim reverted and points deducted", "info");
+    }
+
+    // PRE-GAME POINTS & PRIZE TOGGLE MODAL
+    function openPointsConfigModal() {
+      const container = document.getElementById('points-inputs-container');
+      container.innerHTML = '';
+
+      prizeCategories.forEach((p, idx) => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50/60 gap-3';
+        div.innerHTML = `
+          <div class="flex items-center gap-2.5 truncate">
+            <span class="text-lg">${p.icon}</span>
+            <div class="truncate">
+              <span class="text-xs sm:text-sm font-semibold text-slate-800 truncate block">${p.title}</span>
+              ${p.id === 'corners' ? '<span class="text-[10px] text-amber-600 font-semibold">Enable or disable for this game</span>' : ''}
+            </div>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <div class="flex items-center gap-1.5">
+              <input type="number" min="1" max="1000" id="points-input-${idx}" value="${p.points}" required class="w-16 px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs sm:text-sm font-bold text-center text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <span class="text-xs text-slate-500 font-semibold">pts</span>
+            </div>
+            <label class="flex items-center gap-1 cursor-pointer">
+              <input type="checkbox" id="prize-enable-${idx}" ${p.enabled !== false ? 'checked' : ''} class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+              <span class="text-xs text-slate-600 font-medium">Active</span>
+            </label>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      document.getElementById('points-modal').classList.remove('hidden');
+    }
+
+    function closePointsConfigModal() {
+      document.getElementById('points-modal').classList.add('hidden');
+    }
+
+    function savePointsConfig(e) {
+      e.preventDefault();
+      prizeCategories.forEach((p, idx) => {
+        const ptsVal = parseInt(document.getElementById(`points-input-${idx}`).value, 10);
+        const enabledVal = document.getElementById(`prize-enable-${idx}`).checked;
+        if (!isNaN(ptsVal) && ptsVal > 0) p.points = ptsVal;
+        p.enabled = enabledVal;
+      });
+
+      renderPrizeList();
+      closePointsConfigModal();
+      saveStateToIndexedDB();
+      showToast("Prize rules and points saved to IndexedDB!", "success");
+    }
+
+    function resetDefaultPoints() {
+      prizeCategories.forEach((p, idx) => {
+        const input = document.getElementById(`points-input-${idx}`);
+        const chk = document.getElementById(`prize-enable-${idx}`);
+        if (input) input.value = p.defaultPoints;
+        if (chk) chk.checked = p.id !== 'corners';
+      });
+    }
+
+    // ==========================================
+    // STYLED CENTERED CUSTOM POPUP DIALOGS
+    // ==========================================
+    function showCustomConfirm({ title, message, icon = '❓', confirmText = 'Confirm', confirmStyle = 'bg-indigo-600 hover:bg-indigo-700 text-white' }) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById('custom-dialog-modal');
+        const iconEl = document.getElementById('dialog-icon-container');
+        const titleEl = document.getElementById('dialog-title');
+        const msgEl = document.getElementById('dialog-message');
+        const inputWrapper = document.getElementById('dialog-input-wrapper');
+        const cancelBtn = document.getElementById('dialog-cancel-btn');
+        const confirmBtn = document.getElementById('dialog-confirm-btn');
+
+        iconEl.innerText = icon;
+        titleEl.innerText = title;
+        msgEl.innerText = message;
+        inputWrapper.classList.add('hidden');
+        confirmBtn.innerText = confirmText;
+        confirmBtn.className = `flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md transition active:scale-95 ${confirmStyle}`;
+
+        modal.classList.remove('hidden');
+
+        const cleanup = (result) => {
+          modal.classList.add('hidden');
+          cancelBtn.onclick = null;
+          confirmBtn.onclick = null;
+          resolve(result);
+        };
+
+        cancelBtn.onclick = () => cleanup(false);
+        confirmBtn.onclick = () => cleanup(true);
+      });
+    }
+
+    function showCustomPrompt({ title, message, defaultValue = '', placeholder = 'Enter name...', icon = '✏️' }) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById('custom-dialog-modal');
+        const iconEl = document.getElementById('dialog-icon-container');
+        const titleEl = document.getElementById('dialog-title');
+        const msgEl = document.getElementById('dialog-message');
+        const inputWrapper = document.getElementById('dialog-input-wrapper');
+        const inputEl = document.getElementById('dialog-input');
+        const cancelBtn = document.getElementById('dialog-cancel-btn');
+        const confirmBtn = document.getElementById('dialog-confirm-btn');
+
+        iconEl.innerText = icon;
+        titleEl.innerText = title;
+        msgEl.innerText = message;
+        inputWrapper.classList.remove('hidden');
+        inputEl.value = defaultValue;
+        inputEl.placeholder = placeholder;
+        confirmBtn.innerText = 'Save';
+        confirmBtn.className = 'flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-200 transition active:scale-95';
+
+        modal.classList.remove('hidden');
+        inputEl.focus();
+        inputEl.select();
+
+        const cleanup = (result) => {
+          modal.classList.add('hidden');
+          cancelBtn.onclick = null;
+          confirmBtn.onclick = null;
+          inputEl.onkeydown = null;
+          resolve(result);
+        };
+
+        cancelBtn.onclick = () => cleanup(null);
+        confirmBtn.onclick = () => cleanup(inputEl.value.trim());
+        inputEl.onkeydown = (e) => {
+          if (e.key === 'Enter') cleanup(inputEl.value.trim());
+          if (e.key === 'Escape') cleanup(null);
+        };
+      });
+    }
+
+    // END CURRENT GAME & RECORD STATS IN INDEXEDDB
+    async function confirmFinishGame() {
+      const hasClaims = prizeCategories.some(p => p.winner !== null && p.enabled !== false);
+      const totalCalled = calledNumbers.length;
+
+      if (!hasClaims && totalCalled === 0) {
+        showToast("Game hasn't started yet! Draw some numbers first.", "info");
+        return;
+      }
+
+      const confirmed = await showCustomConfirm({
+        icon: '🏁',
+        title: `Finish Game #${currentGameIndex}?`,
+        message: `This will save Game #${currentGameIndex}'s winners to your tournament record and begin Game #${currentGameIndex + 1}.`,
+        confirmText: 'Finish & Save',
+        confirmStyle: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
+      });
+
+      if (!confirmed) return;
+
+      const roundClaims = prizeCategories
+        .filter(p => p.winner !== null && p.enabled !== false)
+        .map(p => ({
+          pattern: p.title,
+          winner: p.winner,
+          points: p.points,
+          icon: p.icon
+        }));
+
+      completedGamesHistory.push({
+        gameNumber: currentGameIndex,
+        totalNumbersCalled: totalCalled,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        date: new Date().toLocaleDateString(),
+        claims: roundClaims
+      });
+
+      stopAutoDraw();
+      showToast(`Game #${currentGameIndex} Saved!`, "success");
+      triggerConfetti();
+
+      currentGameIndex += 1;
+      prizeCategories.forEach(p => p.winner = null);
+      
+      initGame(false);
+      saveStateToIndexedDB();
+
+      setTimeout(() => {
+        openLeaderboardModal();
+      }, 700);
+    }
+
+    // LEADERBOARD & GAME HISTORY MODAL
+    function openLeaderboardModal() {
+      renderLeaderboardView();
+      renderHistoryView();
+      document.getElementById('lb-games-count-badge').innerText = `${completedGamesHistory.length} Games Completed`;
+      document.getElementById('tab-history-count').innerText = completedGamesHistory.length;
+      document.getElementById('leaderboard-modal').classList.remove('hidden');
+    }
+
+    function closeLeaderboardModal() {
+      document.getElementById('leaderboard-modal').classList.add('hidden');
+    }
+
+    function switchLeaderboardTab(tab) {
+      const rankingsContent = document.getElementById('tab-content-rankings');
+      const historyContent = document.getElementById('tab-content-history');
+      const rankingsBtn = document.getElementById('tab-btn-rankings');
+      const historyBtn = document.getElementById('tab-btn-history');
+
+      if (tab === 'rankings') {
+        rankingsContent.classList.remove('hidden');
+        historyContent.classList.add('hidden');
+        rankingsBtn.className = 'px-4 py-2 border-b-2 border-indigo-600 font-bold text-sm text-indigo-600 transition';
+        historyBtn.className = 'px-4 py-2 border-b-2 border-transparent font-medium text-sm text-slate-500 hover:text-slate-700 transition';
+      } else {
+        rankingsContent.classList.add('hidden');
+        historyContent.classList.remove('hidden');
+        historyBtn.className = 'px-4 py-2 border-b-2 border-indigo-600 font-bold text-sm text-indigo-600 transition';
+        rankingsBtn.className = 'px-4 py-2 border-b-2 border-transparent font-medium text-sm text-slate-500 hover:text-slate-700 transition';
+      }
+    }
+
+    function renderLeaderboardView() {
+      const tbody = document.getElementById('leaderboard-table-body');
+      const emptyState = document.getElementById('empty-lb-state');
+      tbody.innerHTML = '';
+
+      const allPlayers = Array.from(new Set([...players, ...Object.keys(playerPointsMap)]));
+
+      if (allPlayers.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+      }
+      emptyState.classList.add('hidden');
+
+      const sorted = allPlayers.map(p => {
+        let totalClaims = 0;
+        let claimsList = [];
+
+        completedGamesHistory.forEach(g => {
+          g.claims.forEach(c => {
+            if (c.winner.toLowerCase() === p.toLowerCase()) {
+              totalClaims++;
+              claimsList.push(`Game #${g.gameNumber}: ${c.pattern}`);
+            }
+          });
+        });
+
+        prizeCategories.forEach(c => {
+          if (c.enabled !== false && c.winner && c.winner.toLowerCase() === p.toLowerCase()) {
+            totalClaims++;
+            claimsList.push(`Current Game #${currentGameIndex}: ${c.title}`);
+          }
+        });
+
+        return {
+          name: p,
+          points: playerPointsMap[p] || 0,
+          claimsWon: totalClaims,
+          claimsBreakdown: claimsList
+        };
+      }).sort((a, b) => b.points - a.points || b.claimsWon - a.claimsWon);
+
+      const medals = ['🥇', '🥈', '🥉'];
+
+      sorted.forEach((player, rankIdx) => {
+        const tr = document.createElement('tr');
+        tr.className = rankIdx % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-50';
+
+        const rankBadge = rankIdx < 3 
+          ? `<span class="text-base font-bold">${medals[rankIdx]}</span> <span class="text-xs text-slate-500 ml-1">#${rankIdx + 1}</span>`
+          : `<span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold text-xs">#${rankIdx + 1}</span>`;
+
+        tr.innerHTML = `
+          <td class="py-3 px-3 font-semibold text-slate-700 whitespace-nowrap">${rankBadge}</td>
+          <td class="py-3 px-3">
+            <div class="font-bold text-slate-900">${player.name}</div>
+            <div class="text-[11px] text-slate-400 mt-0.5 truncate max-w-xs" title="${player.claimsBreakdown.join(', ') || 'No claims yet'}">
+              ${player.claimsBreakdown.length > 0 ? player.claimsBreakdown.join(', ') : 'No claims yet'}
+            </div>
+          </td>
+          <td class="py-3 px-3 text-center">
+            <span class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${player.claimsWon > 0 ? 'bg-indigo-50 text-indigo-700' : 'text-slate-400'}">
+              ${player.claimsWon} wins
+            </span>
+          </td>
+          <td class="py-3 px-3 text-right">
+            <span class="font-outfit font-black text-base text-indigo-600 bg-indigo-50/80 px-2.5 py-1 rounded-xl border border-indigo-100">
+              ${player.points} pts
+            </span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ORIGINAL CLEAN GAME-BY-GAME CARD LAYOUT
+    function renderHistoryView() {
+      const container = document.getElementById('game-history-list');
+      const emptyState = document.getElementById('empty-history-state');
+      container.innerHTML = '';
+
+      if (completedGamesHistory.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+      }
+      emptyState.classList.add('hidden');
+
+      const reversedGames = [...completedGamesHistory].reverse();
+
+      reversedGames.forEach(game => {
+        const card = document.createElement('div');
+        card.className = 'p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3';
+
+        let claimsHtml = '';
+        if (game.claims.length === 0) {
+          claimsHtml = '<div class="text-xs text-slate-400 italic">No prizes were claimed during this round.</div>';
+        } else {
+          claimsHtml = `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+              ${game.claims.map(c => `
+                <div class="p-2.5 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between text-xs">
+                  <div class="flex items-center gap-2 truncate">
+                    <span>${c.icon}</span>
+                    <div class="truncate">
+                      <strong class="text-slate-800">${c.pattern}</strong>: 
+                      <span class="text-indigo-600 font-semibold">${c.winner}</span>
+                    </div>
+                  </div>
+                  <span class="font-bold text-amber-600 shrink-0">+${c.points} pts</span>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between border-b border-slate-200/60 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="font-outfit font-black text-slate-900 text-sm">Game #${game.gameNumber}</span>
+              <span class="text-[11px] text-slate-500 font-medium">${game.date || ''} ${game.timestamp}</span>
+            </div>
+            <span class="text-xs text-slate-500 font-semibold">
+              ${game.totalNumbersCalled} numbers called
+            </span>
+          </div>
+          ${claimsHtml}
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function resetTournamentData() {
+      const confirmed = await showCustomConfirm({
+        icon: '⚠️',
+        title: 'Reset Tournament Data?',
+        message: 'Are you sure you want to completely RESET all tournament history, games, and player points back to 0?',
+        confirmText: 'Yes, Reset All',
+        confirmStyle: 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200'
+      });
+
+      if (!confirmed) return;
+
+      completedGamesHistory = [];
+      currentGameIndex = 1;
+      players = ['Player 1', 'Player 2', 'Player 3'];
+      playerPointsMap = {
+        'Player 1': 0,
+        'Player 2': 0,
+        'Player 3': 0
+      };
+      prizeCategories.forEach(p => p.winner = null);
+
+      await clearIndexedDB();
+      initGame(false);
+      renderLeaderboardView();
+      renderHistoryView();
+      updateGameBadge();
+      showToast("Reset to Game #1.", "info");
+    }
+
+    // PLAYERS MANAGEMENT
+    function renderPlayersList() {
+      const container = document.getElementById('players-ul');
+      const emptyState = document.getElementById('empty-player-state');
+      const countEl = document.getElementById('player-count');
+
+      countEl.innerText = players.length;
+      container.innerHTML = '';
+
+      if (players.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      const avatarColors = [
+        'bg-indigo-100 text-indigo-700',
+        'bg-rose-100 text-rose-700',
+        'bg-amber-100 text-amber-700',
+        'bg-emerald-100 text-emerald-700',
+        'bg-sky-100 text-sky-700'
+      ];
+
+      players.forEach((player, i) => {
+        const li = document.createElement('li');
+        const colorClass = avatarColors[i % avatarColors.length];
+        const initial = player.charAt(0).toUpperCase();
+        const pts = playerPointsMap[player] || 0;
+
+        li.className = 'py-2 px-2.5 rounded-xl hover:bg-slate-50 flex items-center justify-between group transition';
+        li.innerHTML = `
+          <div class="flex items-center gap-2.5 truncate flex-1 min-w-0 mr-2">
+            <span class="w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 ${colorClass}">${initial}</span>
+            <div class="truncate">
+              <span class="text-xs sm:text-sm font-semibold text-slate-800 truncate block">${player}</span>
+              <span class="text-[10px] text-amber-600 font-bold block sm:inline sm:ml-1.5">${pts} pts</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 shrink-0 opacity-80 sm:opacity-0 group-hover:opacity-100 transition">
+            <button onclick="editPlayerName(${i})" title="Edit player name" class="text-slate-400 hover:text-indigo-600 text-xs p-1 rounded transition hover:bg-indigo-50">
+              ✏️
+            </button>
+            <button onclick="removePlayer(${i})" title="Remove player" class="text-slate-400 hover:text-rose-500 text-xs p-1 rounded transition hover:bg-rose-50">
+              ✕
+            </button>
+          </div>
+        `;
+        container.appendChild(li);
+      });
+    }
+
+    async function editPlayerName(idx) {
+      const oldName = players[idx];
+      const newName = await showCustomPrompt({
+        title: 'Edit Player Name',
+        message: `Enter the updated name for "${oldName}":`,
+        defaultValue: oldName,
+        placeholder: 'Player name...',
+        icon: '✏️'
+      });
+      
+      if (!newName) return;
+      const trimmed = newName.trim();
+      if (!trimmed || trimmed === oldName) return;
+
+      if (players.some((p, i) => i !== idx && p.toLowerCase() === trimmed.toLowerCase())) {
+        showToast("A player with that name already exists", "warning");
+        return;
+      }
+
+      // Update players array
+      players[idx] = trimmed;
+
+      // Migrate player's points
+      playerPointsMap[trimmed] = playerPointsMap[oldName] || 0;
+      delete playerPointsMap[oldName];
+
+      // Update any active round claims
+      prizeCategories.forEach(prize => {
+        if (prize.winner === oldName) {
+          prize.winner = trimmed;
+        }
+      });
+
+      // Update past games history records
+      completedGamesHistory.forEach(game => {
+        game.claims.forEach(claim => {
+          if (claim.winner === oldName) {
+            claim.winner = trimmed;
+          }
+        });
+      });
+
+      renderPlayersList();
+      renderPrizeList();
+      saveStateToIndexedDB();
+      showToast(`Renamed "${oldName}" to "${trimmed}"`, "success");
+    }
+
+    function addPlayer(e) {
+      e.preventDefault();
+      const input = document.getElementById('player-name-input');
+      const name = input.value.trim();
+
+      if (!name) return;
+
+      if (players.map(p => p.toLowerCase()).includes(name.toLowerCase())) {
+        showToast("Player already exists", "warning");
+        return;
+      }
+
+      players.push(name);
+      if (playerPointsMap[name] === undefined) {
+        playerPointsMap[name] = 0;
+      }
+      input.value = '';
+      renderPlayersList();
+      saveStateToIndexedDB();
+      showToast(`Added player "${name}"`, "success");
+    }
+
+    function removePlayer(idx) {
+      const removed = players.splice(idx, 1)[0];
+      renderPlayersList();
+      saveStateToIndexedDB();
+      showToast(`Removed player "${removed}"`, "info");
+    }
+
+    // TOAST NOTIFIER
+    function showToast(msg, type = "info") {
+      const toast = document.getElementById('toast');
+      const msgEl = document.getElementById('toast-message');
+      const iconEl = document.getElementById('toast-icon');
+
+      msgEl.innerText = msg;
+      
+      if (type === 'success') iconEl.innerText = '✅';
+      else if (type === 'warning') iconEl.innerText = '⚠️';
+      else iconEl.innerText = 'ℹ️';
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 3000);
+    }
+
+    function triggerConfetti() {
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        drawNextNumber();
+      }
+    });
+
+    // Populate speech voices if browser loads them asynchronously
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        // Voices ready
+      };
+    }
+
+    // Start on Window Load with IndexedDB state loading
+    window.onload = async function() {
+      await openIndexedDB();
+      const hasStoredData = await loadStateFromIndexedDB();
+      initGame(hasStoredData);
+      if (hasStoredData) {
+        showToast("Restored saved tournament state", "info");
+      }
+    };
+  </script>
+</body>
+</html>
